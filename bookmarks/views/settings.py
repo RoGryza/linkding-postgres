@@ -50,7 +50,8 @@ def general(request):
 def get_version_info(ttl_hash=None):
     latest_version = None
     try:
-        latest_version_url = 'https://api.github.com/repos/rogryza/linkding-postgres/releases/latest'
+        # TODO replace with rogryza/linkding-postgres when there's a release
+        latest_version_url = 'https://api.github.com/repos/sissbruecker/linkding/releases/latest'
         response = requests.get(latest_version_url, timeout=5)
         json = response.json()
         latest_version = json['name'][1:]
