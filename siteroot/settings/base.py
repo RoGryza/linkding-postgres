@@ -85,11 +85,11 @@ WSGI_APPLICATION = 'siteroot.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('LD_DB_NAME', 'linkding'),
-        'USER': os.environ.get('LD_DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('LD_DB_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('LD_DB_HOST', 'localhost'),
-        'PORT': os.environ.get('LD_DB_PORT', '5432'),
+        'NAME': os.getenv('LD_DB_NAME', 'linkding'),
+        'USER': os.getenv('LD_DB_USER', 'postgres'),
+        'PASSWORD': os.getenv('LD_DB_PASSWORD', 'postgres'),
+        'HOST': os.getenv('LD_DB_HOST', 'localhost'),
+        'PORT': os.getenv('LD_DB_PORT', '5432'),
     }
 }
 

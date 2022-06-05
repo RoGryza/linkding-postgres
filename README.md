@@ -16,3 +16,6 @@ Tests depend on a postgres instance running. If you have docker You can run `run
 to start it with the correct credentials in the background. Note that the script will fail if port
 `5432` is not free, e.g. if you have another instance of postgres running on the default port. See
 `DATABASES` in `siteroot/settings/base.py` for the expected default credentials.
+
+Alternatively if you have [`direnv`](https://github.com/direnv/direnv) and PostgreSQL installed
+locally, you can just run `postgres` inside the direnv setup by `.envrc`.
