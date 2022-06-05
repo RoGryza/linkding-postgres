@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 14
       - name: Install Python dependencies
-        run: pip install -r requirements.txt --ignore-requires-python
+        run: pip install -r requirements.txt
       - name: Install Node dependencies
         run: npm install
       - name: Run tests
