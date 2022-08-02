@@ -1,7 +1,6 @@
 import random
 import logging
-from dataclasses import dataclass
-from typing import Optional, List
+from typing import List
 
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -23,6 +22,7 @@ class BookmarkFactoryMixin:
 
     def setup_bookmark(self,
                        is_archived: bool = False,
+                       unread: bool = False,
                        tags=None,
                        user: User = None,
                        url: str = '',
@@ -32,6 +32,8 @@ class BookmarkFactoryMixin:
                        website_description: str = '',
                        web_archive_snapshot_url: str = '',
                        ):
+        if not title:
+            title = get_random_string(length=32)
         if tags is None:
             tags = []
         if user is None:
@@ -49,6 +51,7 @@ class BookmarkFactoryMixin:
             date_modified=timezone.now(),
             owner=user,
             is_archived=is_archived,
+            unread=unread,
             web_archive_snapshot_url=web_archive_snapshot_url,
         )
         bookmark.save()
@@ -83,6 +86,11 @@ class LinkdingApiTestCase(APITestCase):
         self.assertEqual(response.status_code, expected_status_code)
         return response
 
+    def patch(self, url, data=None, expected_status_code=status.HTTP_200_OK):
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, expected_status_code)
+        return response
+
     def delete(self, url, expected_status_code=status.HTTP_200_OK):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, expected_status_code)
@@ -90,12 +98,19 @@ class LinkdingApiTestCase(APITestCase):
 
 
 class BookmarkHtmlTag:
-    def __init__(self, href: str = '', title: str = '', description: str = '', add_date: str = '', tags: str = ''):
+    def __init__(self,
+                 href: str = '',
+                 title: str = '',
+                 description: str = '',
+                 add_date: str = '',
+                 tags: str = '',
+                 to_read: bool = False):
         self.href = href
         self.title = title
         self.description = description
         self.add_date = add_date
         self.tags = tags
+        self.to_read = to_read
 
 
 class ImportTestMixin:
@@ -104,7 +119,8 @@ class ImportTestMixin:
         <DT>
         <A {f'HREF="{tag.href}"' if tag.href else ''}
            {f'ADD_DATE="{tag.add_date}"' if tag.add_date else ''}
-           {f'TAGS="{tag.tags}"' if tag.tags else ''}>
+           {f'TAGS="{tag.tags}"' if tag.tags else ''}
+           TOREAD="{1 if tag.to_read else 0}">
            {tag.title if tag.title else ''}
         </A>
         {f'<DD>{tag.description}' if tag.description else ''}

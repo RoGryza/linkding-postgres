@@ -19,6 +19,8 @@ class BookmarkSerializer(serializers.ModelSerializer):
             'description',
             'website_title',
             'website_description',
+            'is_archived',
+            'unread',
             'tag_names',
             'date_added',
             'date_modified'
@@ -33,6 +35,8 @@ class BookmarkSerializer(serializers.ModelSerializer):
     # Override optional char fields to provide default value
     title = serializers.CharField(required=False, allow_blank=True, default='')
     description = serializers.CharField(required=False, allow_blank=True, default='')
+    is_archived = serializers.BooleanField(required=False, default=False)
+    unread = serializers.BooleanField(required=False, default=False)
     # Override readonly tag_names property to allow passing a list of tag names to create/update
     tag_names = TagListField(required=False, default=[])
 
@@ -41,14 +45,22 @@ class BookmarkSerializer(serializers.ModelSerializer):
         bookmark.url = validated_data['url']
         bookmark.title = validated_data['title']
         bookmark.description = validated_data['description']
+        bookmark.is_archived = validated_data['is_archived']
+        bookmark.unread = validated_data['unread']
         tag_string = build_tag_string(validated_data['tag_names'])
         return create_bookmark(bookmark, tag_string, self.context['user'])
 
     def update(self, instance: Bookmark, validated_data):
-        instance.url = validated_data['url']
-        instance.title = validated_data['title']
-        instance.description = validated_data['description']
-        tag_string = build_tag_string(validated_data['tag_names'])
+        # Update fields if they were provided in the payload
+        for key in ['url', 'title', 'description', 'unread']:
+            if key in validated_data:
+                setattr(instance, key, validated_data[key])
+
+        # Use tag string from payload, or use bookmark's current tags as fallback
+        tag_string = build_tag_string(instance.tag_names)
+        if 'tag_names' in validated_data:
+            tag_string = build_tag_string(validated_data['tag_names'])
+
         return update_bookmark(instance, tag_string, self.context['user'])
 
 

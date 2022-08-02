@@ -93,6 +93,7 @@ def _create_missing_tags(netscape_bookmarks: List[NetscapeBookmark], user: User)
                 tag = Tag(name=tag_name, owner=user)
                 tag.date_added = timezone.now()
                 tags_to_create.append(tag)
+                tag_cache.put(tag)
 
     Tag.objects.bulk_create(tags_to_create)
 
@@ -172,12 +173,13 @@ def _import_batch(netscape_bookmarks: List[NetscapeBookmark], user: User, tag_ca
             shortened_bookmark_tag_str = str(netscape_bookmark)[:100] + '...'
             logging.warning(
                 f'Failed to assign tags to the bookmark: {shortened_bookmark_tag_str}. Could not find bookmark by URL.')
-        else:
-            # Get tag models by string, schedule inserts for bookmark -> tag associations
-            tag_names = parse_tag_string(netscape_bookmark.tag_string)
-            tags = tag_cache.get_all(tag_names)
-            for tag in tags:
-                relationships.append(BookmarkToTagRelationShip(bookmark=bookmark, tag=tag))
+            continue
+
+        # Get tag models by string, schedule inserts for bookmark -> tag associations
+        tag_names = parse_tag_string(netscape_bookmark.tag_string)
+        tags = tag_cache.get_all(tag_names)
+        for tag in tags:
+            relationships.append(BookmarkToTagRelationShip(bookmark=bookmark, tag=tag))
 
     # Insert all bookmark -> tag associations at once, should ignore errors if association already exists
     BookmarkToTagRelationShip.objects.bulk_create(relationships, ignore_conflicts=True)
@@ -190,7 +192,7 @@ def _copy_bookmark_data(netscape_bookmark: NetscapeBookmark, bookmark: Bookmark)
     else:
         bookmark.date_added = timezone.now()
     bookmark.date_modified = bookmark.date_added
-    bookmark.unread = False
+    bookmark.unread = netscape_bookmark.to_read
     if netscape_bookmark.title:
         bookmark.title = netscape_bookmark.title
     if netscape_bookmark.description:

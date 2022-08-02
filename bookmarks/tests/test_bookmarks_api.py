@@ -34,6 +34,8 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
             expectation['description'] = bookmark.description
             expectation['website_title'] = bookmark.website_title
             expectation['website_description'] = bookmark.website_description
+            expectation['is_archived'] = bookmark.is_archived
+            expectation['unread'] = bookmark.unread
             expectation['tag_names'] = tag_names
             expectation['date_added'] = bookmark.date_added.isoformat().replace('+00:00', 'Z')
             expectation['date_modified'] = bookmark.date_modified.isoformat().replace('+00:00', 'Z')
@@ -44,11 +46,31 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
 
         self.assertCountEqual(data_list, expectations)
 
+    def test_list_bookmarks(self):
+        response = self.get(reverse('bookmarks:bookmark-list'), expected_status_code=status.HTTP_200_OK)
+        self.assertBookmarkListEqual(response.data['results'], [self.bookmark1, self.bookmark2, self.bookmark3])
+
+    def test_list_bookmarks_should_filter_by_query(self):
+        response = self.get(reverse('bookmarks:bookmark-list') + '?q=#' + self.tag1.name,
+                            expected_status_code=status.HTTP_200_OK)
+        self.assertBookmarkListEqual(response.data['results'], [self.bookmark1])
+
+    def test_list_archived_bookmarks_does_not_return_unarchived_bookmarks(self):
+        response = self.get(reverse('bookmarks:bookmark-archived'), expected_status_code=status.HTTP_200_OK)
+        self.assertBookmarkListEqual(response.data['results'], [self.archived_bookmark1, self.archived_bookmark2])
+
+    def test_list_archived_bookmarks_should_filter_by_query(self):
+        response = self.get(reverse('bookmarks:bookmark-archived') + '?q=#' + self.tag1.name,
+                            expected_status_code=status.HTTP_200_OK)
+        self.assertBookmarkListEqual(response.data['results'], [self.archived_bookmark1])
+
     def test_create_bookmark(self):
         data = {
             'url': 'https://example.com/',
             'title': 'Test title',
             'description': 'Test description',
+            'is_archived': False,
+            'unread': False,
             'tag_names': ['tag1', 'tag2']
         }
         self.post(reverse('bookmarks:bookmark-list'), data, status.HTTP_201_CREATED)
@@ -56,6 +78,31 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
         self.assertEqual(bookmark.url, data['url'])
         self.assertEqual(bookmark.title, data['title'])
         self.assertEqual(bookmark.description, data['description'])
+        self.assertFalse(bookmark.is_archived, data['is_archived'])
+        self.assertFalse(bookmark.unread, data['unread'])
+        self.assertEqual(bookmark.tags.count(), 2)
+        self.assertEqual(bookmark.tags.filter(name=data['tag_names'][0]).count(), 1)
+        self.assertEqual(bookmark.tags.filter(name=data['tag_names'][1]).count(), 1)
+
+    def test_create_bookmark_with_same_url_updates_existing_bookmark(self):
+        original_bookmark = self.setup_bookmark()
+        data = {
+            'url': original_bookmark.url,
+            'title': 'Updated title',
+            'description': 'Updated description',
+            'unread': True,
+            'is_archived': True,
+            'tag_names': ['tag1', 'tag2']
+        }
+        self.post(reverse('bookmarks:bookmark-list'), data, status.HTTP_201_CREATED)
+        bookmark = Bookmark.objects.get(url=data['url'])
+        self.assertEqual(bookmark.id, original_bookmark.id)
+        self.assertEqual(bookmark.url, data['url'])
+        self.assertEqual(bookmark.title, data['title'])
+        self.assertEqual(bookmark.description, data['description'])
+        # Saving a duplicate bookmark should not modify archive flag - right?
+        self.assertFalse(bookmark.is_archived)
+        self.assertEqual(bookmark.unread, data['unread'])
         self.assertEqual(bookmark.tags.count(), 2)
         self.assertEqual(bookmark.tags.filter(name=data['tag_names'][0]).count(), 1)
         self.assertEqual(bookmark.tags.filter(name=data['tag_names'][1]).count(), 1)
@@ -76,21 +123,41 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
         data = {'url': 'https://example.com/'}
         self.post(reverse('bookmarks:bookmark-list'), data, status.HTTP_201_CREATED)
 
-    def test_list_bookmarks(self):
-        response = self.get(reverse('bookmarks:bookmark-list'), expected_status_code=status.HTTP_200_OK)
-        self.assertBookmarkListEqual(response.data['results'], [self.bookmark1, self.bookmark2, self.bookmark3])
+    def test_create_archived_bookmark(self):
+        data = {
+            'url': 'https://example.com/',
+            'title': 'Test title',
+            'description': 'Test description',
+            'is_archived': True,
+            'tag_names': ['tag1', 'tag2']
+        }
+        self.post(reverse('bookmarks:bookmark-list'), data, status.HTTP_201_CREATED)
+        bookmark = Bookmark.objects.get(url=data['url'])
+        self.assertEqual(bookmark.url, data['url'])
+        self.assertEqual(bookmark.title, data['title'])
+        self.assertEqual(bookmark.description, data['description'])
+        self.assertTrue(bookmark.is_archived)
+        self.assertEqual(bookmark.tags.count(), 2)
+        self.assertEqual(bookmark.tags.filter(name=data['tag_names'][0]).count(), 1)
+        self.assertEqual(bookmark.tags.filter(name=data['tag_names'][1]).count(), 1)
 
-    def test_list_bookmarks_should_filter_by_query(self):
-        response = self.get(reverse('bookmarks:bookmark-list') + '?q=#' + self.tag1.name, expected_status_code=status.HTTP_200_OK)
-        self.assertBookmarkListEqual(response.data['results'], [self.bookmark1])
+    def test_create_bookmark_is_not_archived_by_default(self):
+        data = {'url': 'https://example.com/'}
+        self.post(reverse('bookmarks:bookmark-list'), data, status.HTTP_201_CREATED)
+        bookmark = Bookmark.objects.get(url=data['url'])
+        self.assertFalse(bookmark.is_archived)
 
-    def test_list_archived_bookmarks_does_not_return_unarchived_bookmarks(self):
-        response = self.get(reverse('bookmarks:bookmark-archived'), expected_status_code=status.HTTP_200_OK)
-        self.assertBookmarkListEqual(response.data['results'], [self.archived_bookmark1, self.archived_bookmark2])
+    def test_create_unread_bookmark(self):
+        data = {'url': 'https://example.com/', 'unread': True}
+        self.post(reverse('bookmarks:bookmark-list'), data, status.HTTP_201_CREATED)
+        bookmark = Bookmark.objects.get(url=data['url'])
+        self.assertTrue(bookmark.unread)
 
-    def test_list_archived_bookmarks_should_filter_by_query(self):
-        response = self.get(reverse('bookmarks:bookmark-archived') + '?q=#' + self.tag1.name, expected_status_code=status.HTTP_200_OK)
-        self.assertBookmarkListEqual(response.data['results'], [self.archived_bookmark1])
+    def test_create_bookmark_is_not_unread_by_default(self):
+        data = {'url': 'https://example.com/'}
+        self.post(reverse('bookmarks:bookmark-list'), data, status.HTTP_201_CREATED)
+        bookmark = Bookmark.objects.get(url=data['url'])
+        self.assertFalse(bookmark.unread)
 
     def test_get_bookmark(self):
         url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
@@ -103,6 +170,75 @@ class BookmarksApiTestCase(LinkdingApiTestCase, BookmarkFactoryMixin):
         self.put(url, data, expected_status_code=status.HTTP_200_OK)
         updated_bookmark = Bookmark.objects.get(id=self.bookmark1.id)
         self.assertEqual(updated_bookmark.url, data['url'])
+
+    def test_update_bookmark_fails_without_required_fields(self):
+        data = {'title': 'https://example.com/'}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.put(url, data, expected_status_code=status.HTTP_400_BAD_REQUEST)
+
+    def test_update_bookmark_with_minimal_payload_clears_all_fields(self):
+        data = {'url': 'https://example.com/'}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.put(url, data, expected_status_code=status.HTTP_200_OK)
+        updated_bookmark = Bookmark.objects.get(id=self.bookmark1.id)
+        self.assertEqual(updated_bookmark.url, data['url'])
+        self.assertEqual(updated_bookmark.title, '')
+        self.assertEqual(updated_bookmark.description, '')
+        self.assertEqual(updated_bookmark.tag_names, [])
+
+    def test_update_bookmark_unread_flag(self):
+        data = {'url': 'https://example.com/', 'unread': True}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.put(url, data, expected_status_code=status.HTTP_200_OK)
+        updated_bookmark = Bookmark.objects.get(id=self.bookmark1.id)
+        self.assertEqual(updated_bookmark.unread, True)
+
+    def test_patch_bookmark(self):
+        data = {'url': 'https://example.com'}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.patch(url, data, expected_status_code=status.HTTP_200_OK)
+        self.bookmark1.refresh_from_db()
+        self.assertEqual(self.bookmark1.url, data['url'])
+
+        data = {'title': 'Updated title'}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.patch(url, data, expected_status_code=status.HTTP_200_OK)
+        self.bookmark1.refresh_from_db()
+        self.assertEqual(self.bookmark1.title, data['title'])
+
+        data = {'description': 'Updated description'}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.patch(url, data, expected_status_code=status.HTTP_200_OK)
+        self.bookmark1.refresh_from_db()
+        self.assertEqual(self.bookmark1.description, data['description'])
+
+        data = {'unread': True}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.patch(url, data, expected_status_code=status.HTTP_200_OK)
+        self.bookmark1.refresh_from_db()
+        self.assertTrue(self.bookmark1.unread)
+
+        data = {'unread': False}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.patch(url, data, expected_status_code=status.HTTP_200_OK)
+        self.bookmark1.refresh_from_db()
+        self.assertFalse(self.bookmark1.unread)
+
+        data = {'tag_names': ['updated-tag-1', 'updated-tag-2']}
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.patch(url, data, expected_status_code=status.HTTP_200_OK)
+        self.bookmark1.refresh_from_db()
+        tag_names = [tag.name for tag in self.bookmark1.tags.all()]
+        self.assertListEqual(tag_names, ['updated-tag-1', 'updated-tag-2'])
+
+    def test_patch_with_empty_payload_does_not_modify_bookmark(self):
+        url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])
+        self.patch(url, {}, expected_status_code=status.HTTP_200_OK)
+        updated_bookmark = Bookmark.objects.get(id=self.bookmark1.id)
+        self.assertEqual(updated_bookmark.url, self.bookmark1.url)
+        self.assertEqual(updated_bookmark.title, self.bookmark1.title)
+        self.assertEqual(updated_bookmark.description, self.bookmark1.description)
+        self.assertListEqual(updated_bookmark.tag_names, self.bookmark1.tag_names)
 
     def test_delete_bookmark(self):
         url = reverse('bookmarks:bookmark-detail', args=[self.bookmark1.id])

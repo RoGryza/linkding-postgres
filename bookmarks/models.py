@@ -1,3 +1,5 @@
+import binascii
+import os
 from typing import List
 
 from django import forms
@@ -50,7 +52,7 @@ class Bookmark(models.Model):
     website_title = models.CharField(max_length=512, blank=True, null=True)
     website_description = models.TextField(blank=True, null=True)
     web_archive_snapshot_url = models.CharField(max_length=2048, blank=True)
-    unread = models.BooleanField(default=True)
+    unread = models.BooleanField(default=False)
     is_archived = models.BooleanField(default=False)
     date_added = models.DateTimeField()
     date_modified = models.DateTimeField()
@@ -97,12 +99,13 @@ class BookmarkForm(forms.ModelForm):
                             required=False)
     description = forms.CharField(required=False,
                                   widget=forms.Textarea())
+    unread = forms.BooleanField(required=False)
     # Hidden field that determines whether to close window/tab after saving the bookmark
     auto_close = forms.CharField(required=False)
 
     class Meta:
         model = Bookmark
-        fields = ['url', 'tag_string', 'title', 'description', 'auto_close']
+        fields = ['url', 'tag_string', 'title', 'description', 'unread', 'auto_close']
 
 
 class UserProfile(models.Model):
@@ -166,3 +169,27 @@ class Toast(models.Model):
     message = models.TextField()
     acknowledged = models.BooleanField(default=False)
     owner = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+
+
+class FeedToken(models.Model):
+    """
+    Adapted from authtoken.models.Token
+    """
+    key = models.CharField(max_length=40, primary_key=True)
+    user = models.OneToOneField(get_user_model(),
+                                related_name='feed_token',
+                                on_delete=models.CASCADE,
+                                )
+    created = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_key(cls):
+        return binascii.hexlify(os.urandom(20)).decode()
+
+    def __str__(self):
+        return self.key
