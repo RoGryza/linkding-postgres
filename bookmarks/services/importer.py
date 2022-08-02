@@ -172,12 +172,12 @@ def _import_batch(netscape_bookmarks: List[NetscapeBookmark], user: User, tag_ca
             shortened_bookmark_tag_str = str(netscape_bookmark)[:100] + '...'
             logging.warning(
                 f'Failed to assign tags to the bookmark: {shortened_bookmark_tag_str}. Could not find bookmark by URL.')
-
-        # Get tag models by string, schedule inserts for bookmark -> tag associations
-        tag_names = parse_tag_string(netscape_bookmark.tag_string)
-        tags = tag_cache.get_all(tag_names)
-        for tag in tags:
-            relationships.append(BookmarkToTagRelationShip(bookmark=bookmark, tag=tag))
+        else:
+            # Get tag models by string, schedule inserts for bookmark -> tag associations
+            tag_names = parse_tag_string(netscape_bookmark.tag_string)
+            tags = tag_cache.get_all(tag_names)
+            for tag in tags:
+                relationships.append(BookmarkToTagRelationShip(bookmark=bookmark, tag=tag))
 
     # Insert all bookmark -> tag associations at once, should ignore errors if association already exists
     BookmarkToTagRelationShip.objects.bulk_create(relationships, ignore_conflicts=True)

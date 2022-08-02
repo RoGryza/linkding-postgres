@@ -1,10 +1,10 @@
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.urls import reverse
 
 from bookmarks.tests.helpers import BookmarkFactoryMixin, disable_logging
 
 
-class SettingsImportViewTestCase(TestCase, BookmarkFactoryMixin):
+class SettingsImportViewTestCase(TransactionTestCase, BookmarkFactoryMixin):
 
     def setUp(self) -> None:
         user = self.get_or_create_test_user()
