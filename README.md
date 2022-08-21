@@ -4,11 +4,26 @@ the original project so reading the documentation there is recommended. Do not f
 unless you're sure they're not caused by the changes in this fork, if in doubt feel free to open an
 issue here and I can help look into it.
 
-Note that this fork does not support SQLite for easier maintenance.
+Note that this fork does not support SQLite in order to ease maintenance.
 
-##  TODO
+## TODO add docker
 
-##  Development
+##  Configuration
+
+Linkding-postgres is configured via the following environment variables (see
+`sitreoot/settings/base.py`):
+
+| Variable       | Default   | Description       |
+| -------------- | --------- | ----------------- |
+| LD_DB_NAME     | linkding  | Database name     |
+| LD_DB_USER     | postgres  | Postgres user     |
+| LD_DB_PASSWORD | postgres  | Postgres password |
+| LD_DB_HOST     | localhost | Postgres host     |
+| LD_DB_PORT     | 5432      | Postgres port     |
+
+Alternatively, you can update `DATABASES['default']` in `siteroot/settings/custom.py`. See
+[`siteroot/settings/base.py`](https://github.com/RoGryza/linkding-postgres/tree/master/siteroot/settings/base.py)
+for an example.
 
 ###  Testing
 
