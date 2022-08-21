@@ -1,13 +1,15 @@
 import urllib.parse
 
 from django.contrib.auth.decorators import login_required
+from django.core.handlers.wsgi import WSGIRequest
 from django.core.paginator import Paginator
+from django.db.models import QuerySet, Q, prefetch_related_objects
 from django.http import HttpResponseRedirect, Http404
 from django.shortcuts import render
 from django.urls import reverse
 
 from bookmarks import queries
-from bookmarks.models import Bookmark, BookmarkForm, build_tag_string
+from bookmarks.models import Bookmark, BookmarkForm, BookmarkFilters, User, Tag, build_tag_string
 from bookmarks.services.bookmarks import create_bookmark, update_bookmark, archive_bookmark, archive_bookmarks, \
     unarchive_bookmark, unarchive_bookmarks, delete_bookmarks, tag_bookmarks, untag_bookmarks
 from bookmarks.utils import get_safe_return_url
@@ -17,30 +19,63 @@ _default_page_size = 30
 
 @login_required
 def index(request):
-    query_string = request.GET.get('q')
-    query_set = queries.query_bookmarks(request.user, query_string)
-    tags = queries.query_bookmark_tags(request.user, query_string)
+    filters = BookmarkFilters(request)
+    query_set = queries.query_bookmarks(request.user, filters.query)
+    tags = queries.query_bookmark_tags(request.user, filters.query)
     base_url = reverse('bookmarks:index')
-    context = get_bookmark_view_context(request, query_set, tags, base_url)
+    context = get_bookmark_view_context(request, filters, query_set, tags, base_url)
     return render(request, 'bookmarks/index.html', context)
 
 
 @login_required
 def archived(request):
-    query_string = request.GET.get('q')
-    query_set = queries.query_archived_bookmarks(request.user, query_string)
-    tags = queries.query_archived_bookmark_tags(request.user, query_string)
+    filters = BookmarkFilters(request)
+    query_set = queries.query_archived_bookmarks(request.user, filters.query)
+    tags = queries.query_archived_bookmark_tags(request.user, filters.query)
     base_url = reverse('bookmarks:archived')
-    context = get_bookmark_view_context(request, query_set, tags, base_url)
+    context = get_bookmark_view_context(request, filters, query_set, tags, base_url)
     return render(request, 'bookmarks/archive.html', context)
 
 
-def get_bookmark_view_context(request, query_set, tags, base_url):
+@login_required
+def shared(request):
+    filters = BookmarkFilters(request)
+    user = User.objects.filter(username=filters.user).first()
+    query_set = queries.query_shared_bookmarks(user, filters.query)
+    tags = queries.query_shared_bookmark_tags(user, filters.query)
+    users = queries.query_shared_bookmark_users(filters.query)
+    base_url = reverse('bookmarks:shared')
+    context = get_bookmark_view_context(request, filters, query_set, tags, base_url)
+    context['users'] = users
+    return render(request, 'bookmarks/shared.html', context)
+
+
+def _get_selected_tags(tags: QuerySet[Tag], query_string: str):
+    parsed_query = queries.parse_query_string(query_string)
+    tag_names = parsed_query['tag_names']
+
+    if len(tag_names) == 0:
+        return []
+
+    condition = Q()
+    for tag_name in parsed_query['tag_names']:
+        condition = condition | Q(name__iexact=tag_name)
+
+    return list(tags.filter(condition))
+
+
+def get_bookmark_view_context(request: WSGIRequest,
+                              filters: BookmarkFilters,
+                              query_set: QuerySet[Bookmark],
+                              tags: QuerySet[Tag],
+                              base_url: str):
     page = request.GET.get('page')
-    query_string = request.GET.get('q')
     paginator = Paginator(query_set, _default_page_size)
     bookmarks = paginator.get_page(page)
-    return_url = generate_return_url(base_url, page, query_string)
+    selected_tags = _get_selected_tags(tags, filters.query)
+    # Prefetch owner relation, this avoids n+1 queries when using the owner in templates
+    prefetch_related_objects(bookmarks.object_list, 'owner')
+    return_url = generate_return_url(base_url, page, filters)
     link_target = request.user.profile.bookmark_link_target
 
     if request.GET.get('tag'):
@@ -51,17 +86,20 @@ def get_bookmark_view_context(request, query_set, tags, base_url):
     return {
         'bookmarks': bookmarks,
         'tags': tags,
-        'query': query_string if query_string else '',
+        'selected_tags': selected_tags,
+        'filters': filters,
         'empty': paginator.count == 0,
         'return_url': return_url,
         'link_target': link_target,
     }
 
 
-def generate_return_url(base_url, page, query_string):
+def generate_return_url(base_url: str, page: int, filters: BookmarkFilters):
     url_query = {}
-    if query_string is not None:
-        url_query['q'] = query_string
+    if filters.query:
+        url_query['q'] = filters.query
+    if filters.user:
+        url_query['user'] = filters.user
     if page is not None:
         url_query['page'] = page
     url_params = urllib.parse.urlencode(url_query)

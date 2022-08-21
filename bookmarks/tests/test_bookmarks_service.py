@@ -7,6 +7,7 @@ from django.utils import timezone
 from bookmarks.models import Bookmark, Tag
 from bookmarks.services.bookmarks import create_bookmark, update_bookmark, archive_bookmark, archive_bookmarks, \
     unarchive_bookmark, unarchive_bookmarks, delete_bookmarks, tag_bookmarks, untag_bookmarks
+from bookmarks.services import website_loader
 from bookmarks.tests.helpers import BookmarkFactoryMixin
 from bookmarks.services import tasks
 
@@ -19,11 +20,12 @@ class BookmarkServiceTestCase(TestCase, BookmarkFactoryMixin):
         self.get_or_create_test_user()
 
     def test_create_should_update_existing_bookmark_with_same_url(self):
-        original_bookmark = self.setup_bookmark(url='https://example.com', unread=False)
+        original_bookmark = self.setup_bookmark(url='https://example.com', unread=False, shared=False)
         bookmark_data = Bookmark(url='https://example.com',
                                  title='Updated Title',
                                  description='Updated description',
                                  unread=True,
+                                 shared=True,
                                  is_archived=True)
         updated_bookmark = create_bookmark(bookmark_data, '', self.get_or_create_test_user())
 
@@ -32,6 +34,7 @@ class BookmarkServiceTestCase(TestCase, BookmarkFactoryMixin):
         self.assertEqual(updated_bookmark.title, bookmark_data.title)
         self.assertEqual(updated_bookmark.description, bookmark_data.description)
         self.assertEqual(updated_bookmark.unread, bookmark_data.unread)
+        self.assertEqual(updated_bookmark.shared, bookmark_data.shared)
         # Saving a duplicate bookmark should not modify archive flag - right?
         self.assertFalse(updated_bookmark.is_archived)
 
@@ -57,6 +60,22 @@ class BookmarkServiceTestCase(TestCase, BookmarkFactoryMixin):
             update_bookmark(bookmark, 'tag1,tag2', self.user)
 
             mock_create_web_archive_snapshot.assert_not_called()
+
+    def test_update_should_update_website_metadata_if_url_did_change(self):
+        with patch.object(website_loader, 'load_website_metadata') as mock_load_website_metadata:
+            bookmark = self.setup_bookmark()
+            bookmark.url = 'https://example.com/updated'
+            update_bookmark(bookmark, 'tag1,tag2', self.user)
+
+            mock_load_website_metadata.assert_called_once()
+
+    def test_update_should_not_update_website_metadata_if_url_did_not_change(self):
+        with patch.object(website_loader, 'load_website_metadata') as mock_load_website_metadata:
+            bookmark = self.setup_bookmark()
+            bookmark.title = 'updated title'
+            update_bookmark(bookmark, 'tag1,tag2', self.user)
+
+            mock_load_website_metadata.assert_not_called()
 
     def test_archive_bookmark(self):
         bookmark = Bookmark(

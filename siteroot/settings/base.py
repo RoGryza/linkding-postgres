@@ -111,9 +111,12 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-LOGIN_URL = '/login'
-LOGIN_REDIRECT_URL = '/bookmarks'
-LOGOUT_REDIRECT_URL = '/login'
+# Website context path.
+LD_CONTEXT_PATH = os.getenv('LD_CONTEXT_PATH', '')
+
+LOGIN_URL = '/' + LD_CONTEXT_PATH + 'login'
+LOGIN_REDIRECT_URL = '/' + LD_CONTEXT_PATH + 'bookmarks'
+LOGOUT_REDIRECT_URL = '/' + LD_CONTEXT_PATH + 'login'
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
@@ -131,7 +134,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.2/howto/static-files/
 
-STATIC_URL = '/static/'
+STATIC_URL = '/' + LD_CONTEXT_PATH + 'static/'
 
 # Collect static files in static folder
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
@@ -183,3 +186,20 @@ MAX_ATTEMPTS = 5
 # specced systems like Raspberries. Should be OK as tasks are not time critical.
 BACKGROUND_TASK_RUN_ASYNC = True
 BACKGROUND_TASK_ASYNC_THREADS = 2
+
+# Enable authentication proxy support if configured
+LD_ENABLE_AUTH_PROXY = os.getenv('LD_ENABLE_AUTH_PROXY', False) in (True, 'True', '1')
+LD_AUTH_PROXY_USERNAME_HEADER = os.getenv('LD_AUTH_PROXY_USERNAME_HEADER', 'REMOTE_USER')
+LD_AUTH_PROXY_LOGOUT_URL = os.getenv('LD_AUTH_PROXY_LOGOUT_URL', None)
+
+if LD_ENABLE_AUTH_PROXY:
+    # Add middleware that automatically authenticates requests that have a known username
+    # in the LD_AUTH_PROXY_USERNAME_HEADER request header
+    MIDDLEWARE.append('bookmarks.middlewares.CustomRemoteUserMiddleware')
+    # Configure auth backend that does not require a password credential
+    AUTHENTICATION_BACKENDS = [
+        'django.contrib.auth.backends.RemoteUserBackend',
+    ]
+    # Configure logout URL
+    if LD_AUTH_PROXY_LOGOUT_URL:
+        LOGOUT_REDIRECT_URL = LD_AUTH_PROXY_LOGOUT_URL

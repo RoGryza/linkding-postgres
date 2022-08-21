@@ -14,7 +14,7 @@
             <div class="content-area-header">
                 <h2>Archived bookmarks</h2>
                 <div class="spacer"></div>
-                {% bookmark_search query tags mode='archive' %}
+                {% bookmark_search filters tags mode='archived' %}
                 {% include 'bookmarks/bulk_edit/toggle.html' %}
             </div>
 
@@ -36,11 +36,11 @@
             <div class="content-area-header">
                 <h2>Tags</h2>
             </div>
-            {% tag_cloud tags %}
+            {% tag_cloud tags selected_tags %}
         </section>
     </div>
 
     <script src="{% static "bundle.js" %}"></script>
     <script src="{% static "shared.js" %}"></script>
-    <script src="{% static "bulk_edit.js" %}"></script>
+    <script src="{% static "bookmark_list.js" %}"></script>
 {% endblock %}

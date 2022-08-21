@@ -2,6 +2,7 @@ import random
 import logging
 from typing import List
 
+from bs4 import BeautifulSoup
 from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.crypto import get_random_string
@@ -23,6 +24,7 @@ class BookmarkFactoryMixin:
     def setup_bookmark(self,
                        is_archived: bool = False,
                        unread: bool = False,
+                       shared: bool = False,
                        tags=None,
                        user: User = None,
                        url: str = '',
@@ -52,6 +54,7 @@ class BookmarkFactoryMixin:
             owner=user,
             is_archived=is_archived,
             unread=unread,
+            shared=shared,
             web_archive_snapshot_url=web_archive_snapshot_url,
         )
         bookmark.save()
@@ -68,6 +71,19 @@ class BookmarkFactoryMixin:
         tag = Tag(name=name, date_added=timezone.now(), owner=user)
         tag.save()
         return tag
+
+    def setup_user(self, name: str = None, enable_sharing: bool = False):
+        if not name:
+            name = get_random_string(length=32)
+        user = User.objects.create_user(name, 'user@example.com', 'password123')
+        user.profile.enable_sharing = enable_sharing
+        user.profile.save()
+        return user
+
+
+class HtmlTestMixin:
+    def make_soup(self, html: str):
+        return BeautifulSoup(html, features="html.parser")
 
 
 class LinkdingApiTestCase(APITestCase):

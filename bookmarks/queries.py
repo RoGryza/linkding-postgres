@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.contrib.auth.models import User
 from django.contrib.postgres.aggregates.mixins import OrderableAggMixin
 from django.db.models import Q, Count, Value, BooleanField, QuerySet, Aggregate
@@ -29,7 +31,13 @@ def query_archived_bookmarks(user: User, query_string: str) -> QuerySet:
         .filter(is_archived=True)
 
 
-def _base_bookmarks_query(user: User, query_string: str) -> QuerySet:
+def query_shared_bookmarks(user: Optional[User], query_string: str) -> QuerySet:
+    return _base_bookmarks_query(user, query_string) \
+        .filter(shared=True) \
+        .filter(owner__profile__enable_sharing=True)
+
+
+def _base_bookmarks_query(user: Optional[User], query_string: str) -> QuerySet:
     # Add aggregated tag info to bookmark instances
     query_set = Bookmark.objects \
         .annotate(tag_count=Count('tags'),
@@ -37,10 +45,11 @@ def _base_bookmarks_query(user: User, query_string: str) -> QuerySet:
                   tag_projection=Value(True, BooleanField()))
 
     # Filter for user
-    query_set = query_set.filter(owner=user)
+    if user:
+        query_set = query_set.filter(owner=user)
 
     # Split query into search terms and tags
-    query = _parse_query_string(query_string)
+    query = parse_query_string(query_string)
 
     # Filter for search terms and tags
     for term in query['search_terms']:
@@ -90,11 +99,27 @@ def query_archived_bookmark_tags(user: User, query_string: str) -> QuerySet:
     return query_set.distinct()
 
 
+def query_shared_bookmark_tags(user: Optional[User], query_string: str) -> QuerySet:
+    bookmarks_query = query_shared_bookmarks(user, query_string)
+
+    query_set = Tag.objects.filter(bookmark__in=bookmarks_query)
+
+    return query_set.distinct()
+
+
+def query_shared_bookmark_users(query_string: str) -> QuerySet:
+    bookmarks_query = query_shared_bookmarks(None, query_string)
+
+    query_set = User.objects.filter(bookmark__in=bookmarks_query)
+
+    return query_set.distinct()
+
+
 def get_user_tags(user: User):
     return Tag.objects.filter(owner=user).all()
 
 
-def _parse_query_string(query_string):
+def parse_query_string(query_string):
     # Sanitize query params
     if not query_string:
         query_string = ''
