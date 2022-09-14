@@ -5,6 +5,7 @@ from functools import lru_cache
 import requests
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import prefetch_related_objects
 from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -50,7 +51,7 @@ def general(request):
 def get_version_info(ttl_hash=None):
     latest_version = None
     try:
-        latest_version_url = 'https://api.github.com/repos/RoGryza/linkding-postgres/releases/latest'
+        latest_version_url = 'https://api.github.com/repos/sissbruecker/linkding/releases/latest'
         response = requests.get(latest_version_url, timeout=5)
         json = response.json()
         latest_version = json['name'][1:]
@@ -114,7 +115,9 @@ def bookmark_import(request):
 def bookmark_export(request):
     # noinspection PyBroadException
     try:
-        bookmarks = query_bookmarks(request.user, '')
+        bookmarks = list(query_bookmarks(request.user, ''))
+        # Prefetch tags to prevent n+1 queries
+        prefetch_related_objects(bookmarks, 'tags')
         file_content = exporter.export_netscape_html(bookmarks)
 
         response = HttpResponse(content_type='text/plain; charset=UTF-8')

@@ -1,24 +1,10 @@
 from typing import Optional
 
 from django.contrib.auth.models import User
-from django.contrib.postgres.aggregates.mixins import OrderableAggMixin
-from django.db.models import Q, Count, Value, BooleanField, QuerySet, Aggregate
+from django.db.models import Q, QuerySet
 
 from bookmarks.models import Bookmark, Tag
 from bookmarks.utils import unique
-
-
-"""Like `django.contrib.postgres.aggregates.StringAgg`, but when empty returns `None` instead of an
-empty str.
-"""
-class StringAgg(OrderableAggMixin, Aggregate):
-    function = 'STRING_AGG'
-    template = '%(function)s(%(distinct)s%(expressions)s %(ordering)s)'
-    allow_distinct = True
-
-    def __init__(self, expression, delimiter, **extra):
-        delimiter_expr = Value(str(delimiter))
-        super().__init__(expression, delimiter_expr, **extra)
 
 
 def query_bookmarks(user: User, query_string: str) -> QuerySet:
@@ -38,11 +24,7 @@ def query_shared_bookmarks(user: Optional[User], query_string: str) -> QuerySet:
 
 
 def _base_bookmarks_query(user: Optional[User], query_string: str) -> QuerySet:
-    # Add aggregated tag info to bookmark instances
-    query_set = Bookmark.objects \
-        .annotate(tag_count=Count('tags'),
-                  tag_string=StringAgg('tags__name', delimiter=','),
-                  tag_projection=Value(True, BooleanField()))
+    query_set = Bookmark.objects
 
     # Filter for user
     if user:
