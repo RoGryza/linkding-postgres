@@ -10,7 +10,7 @@ RUN npm run build
 
 
 FROM python:3.10.6-slim-buster AS python-base
-RUN apt-get update && apt-get -y install build-essential
+RUN apt-get update && apt-get -y install build-essential libpq-dev
 WORKDIR /etc/linkding
 
 

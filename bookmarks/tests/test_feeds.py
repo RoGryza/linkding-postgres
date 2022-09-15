@@ -35,7 +35,7 @@ class FeedsTestCase(TestCase, BookmarkFactoryMixin):
         self.assertContains(response, '<title>All bookmarks</title>')
         self.assertContains(response, '<description>All bookmarks</description>')
         self.assertContains(response, f'<link>http://testserver{feed_url}</link>')
-        self.assertContains(response, f'<atom:link href="http://testserver{feed_url}" rel="self">')
+        self.assertContains(response, f'<atom:link href="http://testserver{feed_url}" rel="self"/>')
 
     def test_all_returns_all_unarchived_bookmarks(self):
         bookmarks = [
@@ -117,7 +117,7 @@ class FeedsTestCase(TestCase, BookmarkFactoryMixin):
         self.assertContains(response, '<title>Unread bookmarks</title>')
         self.assertContains(response, '<description>All unread bookmarks</description>')
         self.assertContains(response, f'<link>http://testserver{feed_url}</link>')
-        self.assertContains(response, f'<atom:link href="http://testserver{feed_url}" rel="self">')
+        self.assertContains(response, f'<atom:link href="http://testserver{feed_url}" rel="self"/>')
 
     def test_unread_returns_unread_and_unarchived_bookmarks(self):
         self.setup_bookmark(unread=False)
