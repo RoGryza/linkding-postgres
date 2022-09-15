@@ -73,9 +73,9 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Docker Hub Description
-        if: github.event_name == 'release'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: peter-evans/dockerhub-description@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
           repository: rogryza/linkding-postgres

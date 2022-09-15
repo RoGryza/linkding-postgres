@@ -1,9 +1,20 @@
 version: '3'
 
+networks:
+  postgres: {}
+
 services:
+  postgres:
+    image: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: linkding
+      POSTGRES_PASSWORD: postgres
+    networks: [postgres]
   linkding:
     container_name: "${LD_CONTAINER_NAME:-linkding}"
-    image: sissbruecker/linkding:latest
+    image: rogryza/linkding-postgres:latest
+    depends_on: [postgres]
     ports:
       - "${LD_HOST_PORT:-9090}:9090"
     volumes:
@@ -11,3 +22,4 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    networks: [postgres]

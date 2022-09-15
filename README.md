@@ -6,7 +6,16 @@ issue here and I can help look into it.
 
 Note that this fork does not support SQLite in order to ease maintenance.
 
-## TODO add docker
+## Docker
+
+There is an example `docker-compose.yml` file. Copy the `.env.sample` file to `.env` and set your
+parameters, then run:
+```shell
+docker-compose up -d
+```
+
+Afterwards, follow [User setup](https://github.com/sissbruecker/linkding#user-setup) from the
+official linkding docs.
 
 ##  Configuration
 
