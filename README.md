@@ -1,3 +1,5 @@
+This fork is unmaintaineed. Postgres support was added upstream in [linkding#388](https://github.com/sissbruecker/linkding/pull/388), published with [v1.16.0](https://github.com/sissbruecker/linkding/releases/tag/v1.16.0)
+
 NOTE: this is a fork of the official linkding with added PostgreSQL support. See [the original
 repo](https://github.com/sissbruecker/linkding), this repository only documents changes from
 the original project so reading the documentation there is recommended. Do not file issues there
